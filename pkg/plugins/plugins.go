@@ -50,9 +50,9 @@ func (s *MemoryLimitPlugin) Filter(ctx context.Context, state *framework.CycleSt
 			return framework.NewStatus(
 				framework.Unschedulable,
 				fmt.Sprintf(
-					"pod memory limit %d must be less than node allocatable %d",
-					container.Resources.Limits.Memory().Value(),
-					limitMemory,
+					"pod memory limit %d Mi must be less than node allocatable %d Mi",
+					container.Resources.Limits.Memory().Value()/1024/1024,
+					limitMemory/1024/1024,
 				),
 			)
 		}

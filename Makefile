@@ -14,7 +14,7 @@ vet:
 	go vet -mod=vendor ./...
 
 build:
-	- env GOOS=linux GOARCH=amd64 go build -o bin/${NAME} main.go
+	- env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/${NAME} main.go
 
 docker-build:
 	- sed "s|PROJECT_NAME|${PROJECT_NAME}|g" Dockerfile.tpl > Dockerfile
