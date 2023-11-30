@@ -1,0 +1,207 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: memory-limit-scheduler-plugin-clusterrole
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+      - events
+    verbs:
+      - create
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - delete
+      - get
+      - list
+      - watch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - bindings
+      - pods/binding
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - pods/status
+    verbs:
+      - patch
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - replicationcontrollers
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+      - extensions
+    resources:
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+      - persistentvolumes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "storage.k8s.io"
+    resources:
+      - storageclasses
+      - csinodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - create
+      - get
+      - list
+      - update
+  - apiGroups:
+      - "events.k8s.io"
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: memory-limit-scheduler-plugin-sa
+  namespace: kube-system
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: memory-limit-scheduler-plugin-clusterrolebinding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: memory-limit-scheduler-plugin-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: memory-limit-scheduler-plugin-sa
+    namespace: kube-system
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+  namespace: kube-system
+data:
+  scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1alpha1
+    kind: KubeSchedulerConfiguration
+    schedulerName: memory-limit-scheduler-plugin
+    leaderElection:
+      leaderElect: true
+      lockObjectName: memory-limit-scheduler-plugin
+      lockObjectNamespace: kube-system
+    plugins:
+      filter:
+        enabled:
+        - name: "memory-limit-scheduler-plugin"
+    pluginConfig:
+    - name: "memory-limit-scheduler-plugin"
+      args:
+        favorite_color: "#326CE5"
+        favorite_number: 7
+        thanks_to: "thockin"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-limit-scheduler-plugin
+  namespace: kube-system
+  labels:
+    component: memory-limit-scheduler-plugin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: memory-limit-scheduler-plugin
+  template:
+    metadata:
+      labels:
+        component: memory-limit-scheduler-plugin
+    spec:
+      serviceAccount: memory-limit-scheduler-plugin-sa
+      priorityClassName: system-cluster-critical
+      volumes:
+        - name: scheduler-config
+          configMap:
+            name: scheduler-config
+      containers:
+        - name: scheduler-ctrl
+          image: win7/memory-limit-scheduler-plugin:0.0.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - memory-limit-scheduler-plugin-framework
+            - --config=/etc/kubernetes/scheduler-config.yaml
+            - --v=3
+          resources:
+            requests:
+              cpu: "50m"
+          volumeMounts:
+            - name: scheduler-config
+              mountPath: /etc/kubernetes
